@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
 class SocketStream {
 public:
 	size_t packetLength;
@@ -59,7 +60,10 @@ std::string expect(const char*& str, const char* match) {
 	return retval;
 }
 
+static void ToLower(std::string& str) {
 
+	std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+}
 //Forward-declaration for socket
 class HTTPSocket;
 static void process_request(std::shared_ptr<HTTPSocket> request);
@@ -155,9 +159,10 @@ public:
 			std::string m = headers[i];
 			const char* mander = m.data();
 			std::string name = expect(mander, ": ");
+			ToLower(name);
 			this->requestHeaders[name] = mander;
 		}
-		std::string connectionStr = this->requestHeaders["Connection"];
+		std::string connectionStr = this->requestHeaders["connection"];
 		if (connectionStr == "keep-alive") {
 			responseHeaders["Connection"] = "keep-alive";
 		}
@@ -201,7 +206,7 @@ static void process_request(std::shared_ptr<HTTPSocket> request) {
 		//Accept websocket
 		//Get the Sec-WebSocket-Key and + the string "258EAFA5-E914-47DA-95CA - C5AB0DC85B11"
 		//then SHA1 it, and finally Base64 it
-		std::string clikey = request->requestHeaders["Sec-WebSocket-Key"];
+		std::string clikey = request->requestHeaders["sec-websocket-key"];
 		clikey += "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 		unsigned char hash[20];
 		SHA1((const unsigned char*)clikey.data(), clikey.size(), hash);
@@ -227,12 +232,12 @@ static void process_request(std::shared_ptr<HTTPSocket> request) {
 			expect(m, ".");
 			std::string extension = m;
 			if (extension == "html") {
-				request->responseHeaders["Content-Type"] = "text/html";
+				request->responseHeaders["content-type"] = "text/html";
 
 			}
 			else {
 				if (extension == "js") {
-					request->responseHeaders["Content-Type"] = "text/javascript";
+					request->responseHeaders["content-type"] = "text/javascript";
 				}
 			}
 			file.seekg(0, std::ios::end);

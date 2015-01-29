@@ -6,6 +6,7 @@
 #include <Windows.h>
 #include <wincrypt.h>
 #pragma comment(lib,"Ws2_32.lib")
+#pragma comment(lib,"Crypt32.lib")
 
 
 

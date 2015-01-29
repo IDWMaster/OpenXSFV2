@@ -1,0 +1,33 @@
+﻿<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>GlobalGrid console</title>
+    <script type="text/javascript" src="Scripts/jquery-2.1.3.js"></script>
+    <script type="text/javascript">
+        //XSF Core File -- Use this as a template for XSF projects.
+        $(document).ready(function () {
+            var flash = true;
+            setInterval(function () {
+                if (flash) {
+                    $('#cursor').show();
+                } else {
+                    $('#cursor').hide();
+                }
+                flash = !flash;
+            }, 500);
+            var Console = {
+                Write: function (txt) {
+
+                }
+            };
+        });
+    </script>
+</head>
+<body style="background-color:black;color:white;">
+    <div id="console">
+        <span id="cursor">_</span>
+
+    </div>
+</body>
+</html>

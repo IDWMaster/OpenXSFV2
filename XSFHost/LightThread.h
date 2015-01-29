@@ -101,9 +101,16 @@ public:
 			events.insert(found);
 		}
 	}
+	bool running;
+	~TimerPool() {
+		running = false;
+		c.notify_all();
+		thread.join();
+	}
 	TimerPool() {
+		running = true;
 		thread = std::thread([=](){
-			while (true) {
+			while (running) {
 				{
 					{
 						std::unique_lock<std::mutex> l(mtx);
@@ -127,7 +134,9 @@ public:
 							std::mutex mx;
 							std::unique_lock<std::mutex> ml(mx);
 							if (c.wait_for(ml, std::chrono::milliseconds(ctimeout)) == std::cv_status::timeout) {
-
+								if (!running) {
+									return;
+								}
 
 								for (auto i = currentEvents.begin(); i != currentEvents.end(); i++) {
 									if (*(i->cancellationToken)) {
