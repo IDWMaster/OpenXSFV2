@@ -4,7 +4,35 @@
 #include "stdafx.h"
 #include "XSFServer.h"
 #include <Windows.h>
+#include <wincrypt.h>
 #pragma comment(lib,"Ws2_32.lib")
+
+
+
+void SHA1(const unsigned char* input, size_t sz, unsigned char* output) {
+	HCRYPTPROV provider;
+	CryptAcquireContext(&provider, 0, 0, PROV_RSA_FULL,0);
+	HCRYPTHASH hash;
+	CryptCreateHash(provider, CALG_SHA1, 0, 0, &hash);
+	CryptHashData(hash, input, sz, 0);
+	DWORD len = 20;
+	CryptGetHashParam(hash, HP_HASHVAL, output, &len, 0);
+	CryptDestroyHash(hash);
+	CryptReleaseContext(provider, 0);
+
+}
+std::string Base64(const unsigned char* input, size_t sz) {
+	HCRYPTPROV provider;
+	CryptAcquireContext(&provider, 0, 0, PROV_RSA_FULL, 0);
+	DWORD count = 0;
+	CryptBinaryToStringA(input, (DWORD)sz, 0, 0, &count);
+	char* mander = new char[count];
+	CryptBinaryToStringA(input, (DWORD)sz, 0, mander, &count);
+	std::string retval = mander;
+	delete[] mander;
+	return retval;
+}
+
 class IDisposable {
 public:
 	virtual ~IDisposable(){};

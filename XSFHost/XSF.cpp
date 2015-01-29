@@ -198,7 +198,14 @@ static void process_request(std::shared_ptr<HTTPSocket> request) {
 	//Handle HTTP request
 	if (request->isWebsocket()) {
 		//TODO: Finish later
-
+		//Accept websocket
+		//Get the Sec-WebSocket-Key and + the string "258EAFA5-E914-47DA-95CA - C5AB0DC85B11"
+		//then SHA1 it, and finally Base64 it
+		std::string clikey = request->requestHeaders["Sec-WebSocket-Key"];
+		clikey += "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+		unsigned char hash[20];
+		SHA1((const unsigned char*)clikey.data(), clikey.size(), hash);
+		Base64(hash, 20);
 	}
 	else {
 		try {
