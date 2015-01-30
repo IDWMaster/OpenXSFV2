@@ -281,12 +281,12 @@ static void process_request(std::shared_ptr<HTTPSocket> request) {
 			expect(m, ".");
 			std::string extension = m;
 			if (extension == "html") {
-				request->responseHeaders["content-type"] = "text/html";
+				request->responseHeaders["Content-Type"] = "text/html";
 
 			}
 			else {
 				if (extension == "js") {
-					request->responseHeaders["content-type"] = "text/javascript";
+					request->responseHeaders["Content-Type"] = "text/javascript";
 				}
 			}
 			file.seekg(0, std::ios::end);

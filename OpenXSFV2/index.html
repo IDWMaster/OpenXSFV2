@@ -18,7 +18,9 @@
                     main();
                     onComplete();
                 };
-                $('head').append($(document.createElement('script')).attr('src', path));
+                var script = document.createElement('script');
+                script.src = path;
+                $('head')[0].appendChild(script);
 
             }
             XSF = {
