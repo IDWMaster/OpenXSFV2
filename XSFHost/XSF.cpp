@@ -49,7 +49,7 @@ public:
 	}
 };
 //What to do when you're expecting
-std::string expect(const char*& str, const char* match) {
+static std::string expect(const char*& str, const char* match) {
 
 	size_t findIndex = std::string(str).find(match);
 	if (findIndex == std::string::npos) {
@@ -91,7 +91,7 @@ public:
 		str->Write((unsigned char*)txt.data(), txt.size());
 	}
 	bool isWebsocket() {
-		return requestHeaders["Upgrade"] == "websocket";
+		return requestHeaders["upgrade"] == "websocket";
 	}
 	void SetLength(size_t len) {
 		std::stringstream m;
@@ -178,6 +178,7 @@ static std::string GetSafePath(std::string requestURL) {
 	while (*current != 0) {
 		if (*current == '/') {
 			components.push_back(cstr);
+			cstr = "";
 		}
 		else {
 			cstr += *current;
@@ -186,12 +187,17 @@ static std::string GetSafePath(std::string requestURL) {
 	}
 	components.push_back(cstr);
 	for (size_t i = 0; i < components.size()-1; i++) {
+		
 		if (components[i].find(".") != std::string::npos) {
 			throw "down";
 		}
 	}
 	std::string retval;
 	for (size_t i = 0; i < components.size(); i++) {
+		while (components[i].find("?") != std::string::npos) {
+			size_t pos = components[i].find("?");
+			components[i][pos] = '\0';
+		}
 		retval += components[i];
 		if (i < components.size() - 1) {
 			retval += "/";
@@ -199,6 +205,7 @@ static std::string GetSafePath(std::string requestURL) {
 	}
 	return retval;
 }
+static std::string key;
 static void process_request(std::shared_ptr<HTTPSocket> request) {
 	//Handle HTTP request
 	if (request->isWebsocket()) {
@@ -210,12 +217,54 @@ static void process_request(std::shared_ptr<HTTPSocket> request) {
 		clikey += "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 		unsigned char hash[20];
 		SHA1((const unsigned char*)clikey.data(), clikey.size(), hash);
-		Base64(hash, 20);
+		std::string response = Base64(hash, 20);
+		request->statusCode = "HTTP/1.1 101 Switching Protocols";
+		request->responseHeaders["Sec-WebSocket-Accept"] = response;
+		request->responseHeaders["Upgrade"] = "websocket";
+		request->responseHeaders["Connection"] = "Upgrade";
+		request->BeginResponse();
+		return;
 	}
 	else {
 		try {
 			std::string path = GetSafePath(request->path);
+			
+			if (path == "index.html") {
+				if (request->requestHeaders.find("referer") != request->requestHeaders.end()) {
+					std::string txt = "This file cannot be viewed from the specified referer.";
+					request->statusCode = "HTTP/1.1 403 Forbidden";
+					request->SetLength(txt.size());
+					request->BeginResponse();
+					request->str->Write((unsigned char*)txt.data(), txt.size());
+					return;
+				}
+			}
+			if (path == "setx") {
+				std::string referer = request->requestHeaders["referer"];
+				const char* ptr = referer.data();
+				try {
+					expect(ptr, "http://127.0.0.1");
+					expect(ptr, "/");
+					if (std::string(ptr) == "index.html") {
+						//Read input from client
+						int len = atoi(request->requestHeaders["Content-Length"].data());
+						char* izard = new char[len+1];
+						memset(izard, 0, len + 1);
+						request->str->Read((unsigned char*)izard, len);
+						key = izard;
+						delete[] izard;
+						request->SetLength(0);
+						request->BeginResponse();
+						return;
+					}
+					else {
+						throw "down";
+					}
+				}
+				catch (const char* err) {
 
+				}
+			}
 			std::ifstream file;
 
 			file.open(path, std::ios::binary | std::ios::in);

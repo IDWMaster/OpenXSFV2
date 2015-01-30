@@ -8,7 +8,16 @@
 #pragma comment(lib,"Ws2_32.lib")
 #pragma comment(lib,"Crypt32.lib")
 
+static std::string expect(const char*& str, const char* match) {
 
+	size_t findIndex = std::string(str).find(match);
+	if (findIndex == std::string::npos) {
+		throw "down";
+	}
+	std::string retval = std::string(str).substr(0, findIndex);
+	str += findIndex + strlen(match);
+	return retval;
+}
 
 void SHA1(const unsigned char* input, size_t sz, unsigned char* output) {
 	HCRYPTPROV provider;
@@ -31,6 +40,9 @@ std::string Base64(const unsigned char* input, size_t sz) {
 	CryptBinaryToStringA(input, (DWORD)sz, 0, mander, &count);
 	std::string retval = mander;
 	delete[] mander;
+	const char* ptr = retval.data();
+	expect(ptr, "\n");
+	retval = expect(ptr, "\r");
 	return retval;
 }
 
