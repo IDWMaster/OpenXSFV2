@@ -16,5 +16,6 @@ int Socket_Receive(void* socket, void* buffer, size_t len);
 void SHA1(const unsigned char* input, size_t sz, unsigned char* output);
 void Dispose(void* object);
 std::string Base64(const unsigned char* input, size_t sz);
+void NetworkToHost(uint16_t& val);
 //END PLATFORM-DEFINES
 #endif

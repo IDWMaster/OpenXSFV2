@@ -50,10 +50,10 @@
 ArrayBuffer.prototype.toString = function () {
     var mview = new Uint8Array(this);
     var retval = String.fromCharCode.apply(null, mview);
-    return decodeURIComponent(retval);
+    return retval;
 };
 String.prototype.toArrayBuffer = function () {
-    var utf8 = encodeURIComponent(this);
+    var utf8 = this; // TODO: Make this REALLY UTF-8!
     var mbuffer = new Uint8Array(utf8.length);
     for (var i = 0; i < utf8.length; i++) {
         mbuffer[i] = utf8.charCodeAt(i);

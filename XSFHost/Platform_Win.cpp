@@ -5,9 +5,12 @@
 #include "XSFServer.h"
 #include <Windows.h>
 #include <wincrypt.h>
+#include <intrin.h>
 #pragma comment(lib,"Ws2_32.lib")
 #pragma comment(lib,"Crypt32.lib")
-
+void NetworkToHost(uint16_t& val) {
+	val = ntohs(val);
+}
 static std::string expect(const char*& str, const char* match) {
 
 	size_t findIndex = std::string(str).find(match);

@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
+
 class SocketStream {
 public:
 	size_t packetLength;
@@ -67,6 +68,8 @@ static void ToLower(std::string& str) {
 //Forward-declaration for socket
 class HTTPSocket;
 static void process_request(std::shared_ptr<HTTPSocket> request);
+
+
 class HTTPSocket {
 public:
 	std::string method;
@@ -76,6 +79,64 @@ public:
 	std::map<std::string, std::string> responseHeaders;
 	std::string statusCode;
 	
+	std::vector<unsigned char> WebSocket_Read(bool& closing) {
+		std::vector<unsigned char> retval;
+		unsigned char op_header;
+		str->Read(op_header);
+		bool fin = false;
+		if ((unsigned char)(op_header >> 7)) {
+			fin = true;
+		}
+		unsigned char opcode = (op_header << 4);
+		opcode = opcode >> 4;
+		if (opcode == 8) {
+			//Terminate connection
+			closing = true;
+			return retval;
+		}
+		if (opcode == 2) {
+			//TODO: Binary data frame
+			//Check mask bit (should be 1, otherwise; protocol violation)
+			unsigned char masklen_a;
+			str->Read(masklen_a);
+			unsigned char maskbit = masklen_a >> 7;
+			if (!maskbit) {
+				//Protocol violation
+				return retval;
+			}
+			//Compute payload length (part A, first 7 bits)
+			masklen_a <<= 1;
+			uint64_t len = masklen_a >> 1;
+			if (len <= 125) {
+				//We know the length
+			}
+			else {
+				if (len == 126) {
+					//It's a 16-bit integer (next 16-bit payload)
+					uint16_t val;
+					str->Read(val);
+					NetworkToHost(val);
+
+				}
+				else {
+					//It's a 64-bit integer (next 64-bit payload)
+					throw "NotYetSupported";
+				}
+			}
+			//Now we should have the length; TODO: Read the rest of the packet
+			unsigned char mask[4];
+			str->Read(mask, 4);
+			//NOTICE: Potential attack vector; send a REALLY big value; causing huge malloc
+			retval.resize(len);
+			str->Read(retval.data(), retval.size());
+			for (size_t i = 0; i < len; i++) {
+				retval.data()[i] ^= mask[i % 4];
+			}
+
+
+		}
+		return retval;
+	}
 
 	void BeginResponse() {
 		std::string txt = statusCode+"\r\n";
@@ -205,6 +266,22 @@ static std::string GetSafePath(std::string requestURL) {
 	}
 	return retval;
 }
+static void ProcessWebsocket(std::shared_ptr<HTTPSocket> request) {
+	//We're authenticated and trusted.
+	//No need for additional checks at this point
+	bool key;
+	unsigned char opcode;
+	bool closed = false;
+	std::vector<unsigned char> packet = request->WebSocket_Read(closed);
+	try {
+		while (!closed) {
+			
+		}
+	}
+	catch (const char* er) {
+
+	}
+}
 static std::string key;
 static void process_request(std::shared_ptr<HTTPSocket> request) {
 	//Handle HTTP request
@@ -223,6 +300,18 @@ static void process_request(std::shared_ptr<HTTPSocket> request) {
 		request->responseHeaders["Upgrade"] = "websocket";
 		request->responseHeaders["Connection"] = "Upgrade";
 		request->BeginResponse();
+		bool f = false;
+		std::vector<unsigned char> responsedata = request->WebSocket_Read(f);
+		//Verify key
+		if (responsedata.size()) {
+
+			responsedata.resize(responsedata.size() + 1);
+			char* mander = (char*)responsedata.data();
+			mander[responsedata.size() - 1] = 0;
+			if (mander == key) {
+				ProcessWebsocket(request);
+			}
+		}
 		return;
 	}
 	else {
@@ -247,7 +336,7 @@ static void process_request(std::shared_ptr<HTTPSocket> request) {
 					expect(ptr, "/");
 					if (std::string(ptr) == "index.html") {
 						//Read input from client
-						int len = atoi(request->requestHeaders["Content-Length"].data());
+						int len = atoi(request->requestHeaders["content-length"].data());
 						char* izard = new char[len+1];
 						memset(izard, 0, len + 1);
 						request->str->Read((unsigned char*)izard, len);
