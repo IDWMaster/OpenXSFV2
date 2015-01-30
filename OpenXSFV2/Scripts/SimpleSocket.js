@@ -49,14 +49,51 @@
 };
 ArrayBuffer.prototype.toString = function () {
     var mview = new Uint8Array(this);
+    var isUTF16 = false;
+    for (var i = 0; i < mview.length; i++) {
+        if ((mview[i] >> 7) >> 0) {
+            //UTF-16 encoding
+            isUTF16 = true;
+            break;
+        }
+    }
+    if (isUTF16) {
+        mview = new Uint16Array(this);
+    }
     var retval = String.fromCharCode.apply(null, mview);
     return retval;
 };
-String.prototype.toArrayBuffer = function () {
-    var utf8 = this; // TODO: Make this REALLY UTF-8!
-    var mbuffer = new Uint8Array(utf8.length);
-    for (var i = 0; i < utf8.length; i++) {
-        mbuffer[i] = utf8.charCodeAt(i);
+//Since JavaScript is getting rid of the unescape function,
+//there is no way of efficiently encoding UTF-8 strings anymore :(
+String.prototype.deprecatedUTF8 = function() {
+    return unescape(encodeURIComponent(this));
+}
+String.prototype.isDiverse = function () {
+    for (var i = 0; i < this.length; i++) {
+        if ((this.charCodeAt(i) >> 7) > 0) {
+            return true;
+        }
     }
-    return mbuffer.buffer;
+    return false;
+};
+String.prototype.china = '嗨';
+String.prototype.toArrayBuffer = function () {
+    
+    var str = this; // TODO: Make this REALLY UTF-8!
+    if (str.isDiverse()) {
+        //Encode as UTF-16
+        var mbuffer = new Uint16Array(this.length);
+        for (var i = 0; i < this.length; i++) {
+            mbuffer[i] = this.charCodeAt(i);
+        }
+        return mbuffer.buffer;
+    } else {
+        //Encode as ASCII (only European characters here)
+        var mbuffer = new Uint8Array(this.length);
+        for (var i = 0; i < this.length; i++) {
+            mbuffer[i] = this.charCodeAt(i);
+        }
+        return mbuffer.buffer;
+
+    }
 };
