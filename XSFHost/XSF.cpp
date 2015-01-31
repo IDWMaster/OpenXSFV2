@@ -275,7 +275,7 @@ static void ProcessWebsocket(std::shared_ptr<HTTPSocket> request) {
 	std::vector<unsigned char> packet = request->WebSocket_Read(closed);
 	try {
 		while (!closed) {
-			
+			packet = request->WebSocket_Read(closed);
 		}
 	}
 	catch (const char* er) {
