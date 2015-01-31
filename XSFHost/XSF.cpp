@@ -69,7 +69,53 @@ static void ToLower(std::string& str) {
 class HTTPSocket;
 static void process_request(std::shared_ptr<HTTPSocket> request);
 
+template<typename T>
+static void SwapBytes(T& val) {
+	unsigned char* ptr = (unsigned char*)&val;
+	for (size_t i = 0; i < sizeof(val)/2; i++) {
+		unsigned char x = ptr[i];
+		ptr[i] = ptr[sizeof(val) - 1 - i];
+		ptr[sizeof(val) - 1 - i] = x;
 
+	}
+}
+class BStream {
+public:
+	unsigned char* ptr;
+	size_t length;
+	BStream(unsigned char* buffer, size_t sz) {
+		this->ptr = buffer;
+		this->length = sz;
+	}
+	unsigned char* Increment(size_t sz) {
+		unsigned char* retval = ptr;
+		if (sz>length) {
+			throw "up";
+		}
+		length -= sz;
+		ptr += sz;
+		return retval;
+	}
+	void Read(unsigned char* buffer, size_t len) {
+		if (len>length) {
+			throw "up";
+		}
+		memcpy(buffer, ptr, len);
+		ptr += len;
+		length -= len;
+	}
+	template<typename T>
+	T& Read(T& val) {
+		Read((unsigned char*)&val, sizeof(T));
+		return val;
+	}
+	char* ReadString() {
+		char* retval = (char*)ptr;
+		char mander;
+		while (Read(mander) != 0){}
+		return retval;
+	}
+};
 class HTTPSocket {
 public:
 	std::string method;
@@ -78,7 +124,29 @@ public:
 	std::map<std::string, std::string> requestHeaders;
 	std::map<std::string, std::string> responseHeaders;
 	std::string statusCode;
-	
+	void WebSocket_Write(const std::vector<unsigned char>& mander) {
+		unsigned char op_header = 0;
+		op_header |= 1;
+		op_header |= (2 << 4);
+		str->Write(op_header);
+		unsigned char mask_sz = 1;
+		if (mander.size() <= 125) {
+			mask_sz |= (mander.size() << 6);
+			str->Write(mask_sz);
+		}
+		else {
+			mask_sz = 127;
+			str->Write(mask_sz);
+			uint64_t sz = (uint64_t)mander.size();
+			SwapBytes(sz);
+			str->Write(sz);
+			
+		}
+		uint32_t maskingKey;
+		str->Write(maskingKey);
+		str->Write((unsigned char*)mander.data(), mander.size());
+
+	}
 	std::vector<unsigned char> WebSocket_Read(bool& closing) {
 		std::vector<unsigned char> retval;
 		unsigned char op_header;
@@ -109,18 +177,22 @@ public:
 			uint64_t len = masklen_a >> 1;
 			if (len <= 125) {
 				//We know the length
+				
 			}
 			else {
 				if (len == 126) {
 					//It's a 16-bit integer (next 16-bit payload)
 					uint16_t val;
 					str->Read(val);
-					NetworkToHost(val);
-
+					SwapBytes(val);
+					len = val;
 				}
 				else {
 					//It's a 64-bit integer (next 64-bit payload)
-					throw "NotYetSupported";
+					uint64_t val;
+					str->Read(val);
+					SwapBytes(val);
+					len = val;
 				}
 			}
 			//Now we should have the length; TODO: Read the rest of the packet
@@ -276,6 +348,15 @@ static void ProcessWebsocket(std::shared_ptr<HTTPSocket> request) {
 	try {
 		while (!closed) {
 			packet = request->WebSocket_Read(closed);
+			BStream str(packet.data(), packet.size());
+			str.Read(opcode);
+			switch (opcode) {
+			case 0:
+			{
+				//TODO: define opcodes
+			}
+				break;
+			}
 		}
 	}
 	catch (const char* er) {
@@ -328,6 +409,7 @@ static void process_request(std::shared_ptr<HTTPSocket> request) {
 					return;
 				}
 			}
+			//Privileged commands
 			if (path == "setx") {
 				std::string referer = request->requestHeaders["referer"];
 				const char* ptr = referer.data();
@@ -352,6 +434,47 @@ static void process_request(std::shared_ptr<HTTPSocket> request) {
 				}
 				catch (const char* err) {
 
+				}
+			}
+			else {
+				//Check referrer
+				bool skipCheck = false;
+				try {
+					if (GetSafePath(request->path) == "index.html" && request->requestHeaders["referer"].empty()) {
+						skipCheck = true;
+					}
+				}
+				catch (const char* err) {
+
+				}
+				if (!skipCheck) {
+
+
+					try {
+						std::string referer = request->requestHeaders["referer"];
+
+						const char* ptr = referer.data();
+						expect(ptr, "http://127.0.0.1");
+						expect(ptr, "/");
+						if (std::string(ptr) != "index.html") {
+							//TODO: GlobalGrid request
+							request->statusCode = "HTTP/1.1 404 Not Found";
+							const char* response = "GlobalGrid Support Not Yet Implemented";
+							request->SetLength(strlen(response));
+							request->BeginResponse();
+							request->str->Write((unsigned char*)response, strlen(response));
+							return;
+						}
+					}
+					catch (const char* err) {
+						//Access from unuathorized referer
+						request->statusCode = "HTTP/1.1 403 Forbidden";
+						const char* response = "You do not have permission to access this resource.";
+						request->SetLength(strlen(response));
+						request->BeginResponse();
+						request->str->Write((unsigned char*)response, strlen(response));
+						return;
+					}
 				}
 			}
 			std::ifstream file;
